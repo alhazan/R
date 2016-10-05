@@ -1,0 +1,68 @@
+
+p.value.prop.test = function(treatment,control,h = "two.sided",alfa=0.05,mdd=0){
+  #control y treatment son data.frames con la primera columna de success y la segunda de n
+  #tienen que estar ordenados cronol?gicamente
+  #creo un vector que acumula
+  
+  df.acum = data.frame(cumsum(treatment),cumsum(control))
+  df.daily = data.frame(treatment,control)
+  names(df.acum) <- names(df.daily) <- c("tx","tn","cx","cn")
+  
+  
+  p.value = function(x,h,mdd) {
+    success = as.numeric(c(x[1],x[3]*(1+mdd)))
+    total = as.numeric(x[c(2,4)])
+    prop.test(success,total,alternative=h)$p.value
+  }
+  
+  estimate = function(x,h) {
+    success = as.numeric(x[c(1,3)])
+    total = as.numeric(x[c(2,4)])
+    prop.test(success,total,alternative=h)$estimate
+  }
+  
+  pvalue = round(apply(df.acum,1,p.value,h=h,mdd=mdd),digits=3)
+  estimated.acum = round(data.frame(t(apply(df.acum,1,estimate,h=h))),digits=4)
+  estimated.daily = round(data.frame(t(apply(df.daily,1,estimate,h=h))),digits=4)
+  colnames(estimated.acum) <- colnames(estimated.daily) <- c("treatment","control")
+  
+  
+#   plot.pvalue <- plot(pvalue,type="l",main="P-Value evolution",ylab="P-value",xlab="",ylim=c(0,1))
+#   abline(h = alfa, lty = 2, col = 'grey')
+#   plot.acum <- plot(estimated.acum[,1],type="l",col="red",main="Accumulated conversion",ylab="Conversion",xlab="")
+#   lines(estimated.acum[,2],col="blue")
+#   legend("topright",c("Treatment","Control"),col=c("red","blue"),lty=1,bty="n",cex=0.7)
+#   plot.daily <- plot(estimated.daily[,1],type="l",col="red",main="Daily conversion",ylab="Conversion",xlab="")
+#   lines(estimated.daily[,2],col="blue")
+#   legend("topright",c("Treatment","Control"),col=c("red","blue"),lty=1,bty="n",cex=0.7)
+#   
+#   
+  return(
+    list(pvalue = pvalue,
+         estimated.acum = estimated.acum,
+         estimated.daily = estimated.daily
+         )
+  )
+  
+#   par(ask=TRUE)
+#   plot.pvalue
+#   plot.acum
+#   plot.daily
+#   par(ask=FALSE)
+  
+}
+
+
+
+# control.df = read.table(file="clipboard",header=F)
+# treatment.df = read.table(file="clipboard",header=F)
+# 
+# 
+# par(ask=T)
+# test = p.value.prop.test(treatment=treatment.df,control=control.df,h = "two.side", mdd= 0.00)
+# 
+# 
+# test
+# 
+# write.table(test$pvalue,'clipboard-9999',dec=".",sep="\t",row.names=F,col.names=F)
+
