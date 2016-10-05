@@ -1,0 +1,120 @@
+#Reconstruccion de varianza - Comparacion por medias
+setwd("/home/despegar/rstudio_data/ahazan/Ab-Test/Scripts")
+datos = fread("AB-Testing-byCountry--byDay.csv")
+datos = data.table(datos)
+datos = datos [order(Date)]
+
+#Variables del test
+
+pais = "MX"
+brazo_activado = "v_E-PROFIT-V2-MX"
+brazo_desactivado = "v_E-PROFIT-V2"
+
+#------------------------ 1: subset para quedarme con algunos estados---------------------------
+search_v_activado = subset(datos, Flow == "SEARCH" & Country == pais & Metric =="Visits" & Variation == brazo_activado & Date <= "2016-09-30") #n = total
+thanks_pv_activado = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Page views"& Variation == brazo_activado & Date <= "2016-09-30") #n-k =compra
+thanks_r_activado = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Revenue"& Variation == brazo_activado & Date <= "2016-09-30") 
+thanks_r_var_activado = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Revenue variance standard" & Variation == brazo_activado& Date <= "2016-09-30")
+
+
+search_v_desactivado = subset(datos, Flow == "SEARCH" & Country == pais & Metric =="Visits" & Variation == brazo_desactivado & Date <= "2016-09-30") #n = total
+thanks_pv_desactivado = subset(datos, Flow == "THANKS" & Country ==pais & Metric =="Page views"& Variation == brazo_desactivado & Date <= "2016-09-30") #n-k =compra
+thanks_r_desactivado = subset(datos, Flow == "THANKS" & Country ==pais & Metric =="Revenue"& Variation == brazo_desactivado & Date <= "2016-09-30") 
+thanks_r_var_desactivado = subset(datos, Flow == "THANKS" & Country ==pais & Metric =="Revenue variance standard"& Variation == brazo_desactivado & Date <= "2016-09-30")
+
+
+# ----------------2: compras efectuadas-------------------------
+
+var_thanks_total_activado = thanks_r_var_activado$Value*(thanks_pv_activado$Value-1)/(search_v_activado$Value-1)+(thanks_r_activado$Value^2)/(thanks_pv_activado$Value*(search_v_activado$Value-1)) # no da
+var_thanks_total_desactivado = thanks_r_var_desactivado$Value*(thanks_pv_desactivado$Value-1)/(search_v_desactivado$Value-1)+(thanks_r_desactivado$Value^2)/(thanks_pv_desactivado$Value*(search_v_desactivado$Value-1)) #OK!
+
+#Creo acumuladores activados y desactivados
+n_acum_activado = cumsum(search_v_activado$Value)
+revenue_acum_activado = cumsum(thanks_r_activado$Value)
+
+n_acum_desactivado = cumsum(search_v_desactivado$Value)
+revenue_acum_desactivado = cumsum(thanks_r_desactivado$Value)
+
+
+var_acum_activado = var_thanks_total_activado[1]
+var_acum_desactivado = var_thanks_total_desactivado[1]
+
+#--------------inicializo los terminos--------------
+
+T1_activado = 0
+T2_activado = 0
+T3_activado = 0
+T4_activado = 0
+
+T1_desactivado = 0
+T2_desactivado = 0
+T3_desactivado = 0
+T4_desactivado = 0
+
+
+numerador_activado =2
+numerador_desactivado =2
+i=2
+#-----------------Reconstruccion de la varianza-------------------
+while (i <= length(search_v_activado$Date))
+  {
+  
+  T1_activado[i] = var_acum_activado[i-1]*(n_acum_activado[i-1]-1) #OK
+  T1_desactivado[i] = var_acum_desactivado[i-1]*(n_acum_desactivado[i-1]-1) #OK
+  
+  T2_activado[i] = (var_thanks_total_activado[i]*(search_v_activado$Value[i]-1)) #OK
+  T2_desactivado[i] = (var_thanks_total_desactivado[i]*(search_v_desactivado$Value[i]-1)) #OK
+  
+  
+  T3_activado[i] =  (n_acum_activado[i-1]/(n_acum_activado[i-1]*n_acum_activado[i]))*(revenue_acum_activado[i-1]*search_v_activado$Value[i]/n_acum_activado[i-1]-revenue_acum_activado[i]) #ok
+  T3_desactivado[i] =  (n_acum_desactivado[i-1]/(n_acum_desactivado[i-1]*n_acum_desactivado[i]))*(revenue_acum_desactivado[i-1]*search_v_desactivado$Value[i]/n_acum_desactivado[i-1]-revenue_acum_desactivado[i]) #ok
+  
+  
+  T4_activado[i] = n_acum_activado[i]-1
+  T4_desactivado[i] = n_acum_desactivado[i]-1
+  
+    
+  numerador_activado[i] = (T1_activado[i] + T2_activado[i] + T3_activado[i])
+  numerador_desactivado[i] = (T1_desactivado[i] + T2_desactivado[i] + T3_desactivado[i])
+  
+  var_acum_activado[i] = numerador_activado[i] / T4_activado[i]
+  var_acum_desactivado[i] = numerador_desactivado[i] / T4_desactivado[i]
+  
+  
+  i = i+1
+  
+  
+  }
+
+reconstruccion_activado = data.frame(date = search_v_activado$Date, arm = search_v_activado$Variation, thanks_var = thanks_r_var_activado$Value , revenue = thanks_r_activado$Value, 
+                                     n_acum = n_acum_activado, revenue_acum = revenue_acum_activado, var_acum = var_acum_activado)
+
+reconstruccion_desactivado = data.frame(date = search_v_desactivado$Date, arm = search_v_desactivado$Variation, thanks_var = thanks_r_var_desactivado$Value , revenue = thanks_r_desactivado$Value,
+                                        n_acum = n_acum_desactivado, revenue_acum = revenue_acum_desactivado, var_acum = var_acum_desactivado)
+
+
+
+#-------------------------------Grafico----------------
+
+
+reconstruccion = rbind(reconstruccion_activado, reconstruccion_desactivado)
+
+ggplot(reconstruccion, aes(x = date, y = var_acum, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("varianza") + ggtitle("Sorting MX")
+
+
+#---------------Test hipotesis--------------
+RV_activado = revenue_acum_activado[length(search_v_activado$Date)]/n_acum_activado[length(search_v_activado$Date)]
+RV_desactivado = revenue_acum_desactivado[length(search_v_desactivado$Date)]/n_acum_desactivado[length(search_v_desactivado$Date)]
+  
+
+numerador_test = RV_activado - RV_desactivado
+denominador_test = sqrt(var_acum_desactivado[length(search_v_desactivado$Date)]/n_acum_desactivado[length(search_v_desactivado$Date)]
+                        + var_acum_activado[length(search_v_activado$Date)]/n_acum_activado[length(search_v_activado$Date)])
+  
+  t = numerador_test / denominador_test
+  
+  df = n_acum_activado[length(search_v_activado$Date)] + n_acum_desactivado[length(search_v_desactivado$Date)]
+  
+list(t = t, df = df,pvalue = 2*pt(abs(t),df,lower.tail=F))
+
