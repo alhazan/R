@@ -1,0 +1,65 @@
+#llamado a seguimiento de ab test
+
+datos = "AB-Testing-byCountry--byDay.csv" #Debe Ingresar el nombre del archivo donde tiene guardado los datos y setear como wd donde estan guardados
+pais = "AR"  # Debe ingresar el Country Code de Despegar.com
+brazos = c("v_ABT_TRN_E_PROFIT_V2-AR","v_ABT_TRN_E_PROFIT-V2") #Debe Ingresar el nombre de los brazos a analizar
+brazos =  gsub(pattern = "\\-",replacement = "_",x = brazos)
+fecha_inicio = "2016-09-19"
+fecha_fin = "2016-09-30"
+matriz_analisis = AB_Test_seguimiento_2(datos, pais, brazos,fecha_inicio, fecha_fin)
+matriz_analisis = data.table(matriz_analisis)
+
+#------------------Análisis gráfico--------------------------------------
+g_search_visits =  ggplot(matriz_analisis, aes(x = date, y = Search_visits, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("Visitas") + ggtitle(paste0("Search Visits - ", pais)) #OK
+
+g_revenue =  ggplot(matriz_analisis, aes(x = date, y = revenue, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Revenue - ", pais)) #OK
+
+g_conversion =  ggplot(matriz_analisis, aes(x = date, y = conversion*100, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("Conversion %") + ggtitle(paste0("Conversion - ", pais)) #OK
+
+g_conversion_acum =  ggplot(matriz_analisis, aes(x = date, y = conversion_acum*100, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("Conversion Acum %") + ggtitle(paste0("Conversion Acumulada - ", pais))#OK
+
+g_GB =  ggplot(matriz_analisis, aes(x = date, y = GB, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Gross Booking - ", pais)) #OK
+
+g_GB_v =  ggplot(matriz_analisis, aes(x = date, y = GB_V, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Gross Booking por visita - ", pais)) #OK
+
+g_GB_pv =  ggplot(matriz_analisis, aes(x = date, y = GB_pv, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Gross Booking por page view - ", pais))
+
+g_rpv =  ggplot(matriz_analisis, aes(x = date, y = rpv, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Revenue por page view - ", pais))
+
+g_checkoutv_searchv =  ggplot(matriz_analisis, aes(x = date, y = checkout_v_search_v_acum*100 , group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("%") + ggtitle(paste0("Search a Checkout (Visitas)(visitas) - ", pais))
+
+g_detailv_search_v =  ggplot(matriz_analisis, aes(x = date, y = detail_v_search_v_acum*100, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("%") + ggtitle(paste0("Search a Detail (Visitas) - ", pais))
+
+g_revenue_v_acum =  ggplot(matriz_analisis, aes(x = date, y = revenue_v_acum, group = arm, colour = arm))+
+  geom_line(size=1) + xlab("Fecha") + ylab("$") + ggtitle(paste0("Revenue por visita Acumulado - ", pais))
+
+#-------------------------------Estadistica: t student y test de proporciones------------------------------------
+
+#Comparacion varianzas por student
+  #funcion en desarrollo
+
+#comparacion RV por student
+prueba = matriz_analisis[,list(revenue_v_acum), by = "arm"]
+x = subset(matriz_analisis, arm == brazos[1])
+y = subset(matriz_analisis, arm == brazos[2])
+
+t = (mean(x$revenue_v_acum)-mean(y$revenue_v_acum)) / sqrt((var(x$revenue_v_acum)/length(x$revenue_v_acum))+(var(y$revenue_v_acum)/length(y$revenue_v_acum)))
+t =t.test(x$revenue_v_acum,y$revenue_v_acum)
+
+$#Comparacion Conversion por test de proporciones
+brazo_control = brazos[2]
+brazo_analisis = brazos[1]
+
+pvalueAB_prop(matriz_analisis,brazo_control, brazo_analisis)
+
+
