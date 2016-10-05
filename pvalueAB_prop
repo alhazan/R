@@ -1,0 +1,16 @@
+#AB testing
+pvalueAB_prop = function (nombre_datos,brazo_control,brazo_analisis)
+{
+
+  control =   subset(nombre_datos, arm == brazo_control)$thanks_pv
+  treatment = subset(nombre_datos, arm == brazo_analisis)$thanks_pv
+  n_control = subset(nombre_datos, arm == brazo_control)$Search_v
+  n_treatment =  subset(nombre_datos, arm == brazo_analisis)$Search_v
+    
+  control_data = data.frame (success = control, n = n_control)
+  treatment_data = data.frame (success = treatment, n = n_treatment)
+  
+  p.value.prop.test(control_data,treatment_data)
+ 
+}
+  
