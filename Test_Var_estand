@@ -1,0 +1,159 @@
+#Reconstruccion de varianza - Comparacion por medias
+setwd("/home/despegar/rstudio_data/ahazan/Ab-Test/Scripts")
+datos = fread("AB-Testing-byCountry--byDay.csv")
+datos = data.table(datos)
+datos = datos [order(Date)]
+
+#Variables del test
+
+pais = "MX"
+brazos = c("v_E_PROFIT_V2_MX","v_E_PROFIT_V2")
+
+
+reconstruccion_var = function(nombre_archivo_datos, pais, brazos)
+{
+  #   datos = "AB-Testing-byCountry--byDay.csv" #Debe Ingresar el nombre del archivo donde tiene guardado los datos y setear como wd donde estan guardados
+  #   pais = "MX"  # Debe ingresar el Country Code de Despegar.com
+  #   brazos = c("v_E_PROFIT_V2_MX","v_E_PROFIT_V2") #Debe Ingresar el nombre de los brazos a analizar
+ 
+  nombre_archivo_datos = "AB-Testing-byCountry--byDay.csv"
+  
+  #Variables del test
+  fecha_inicio ="2016-09-09"
+  fecha_fin ="2016-09-23"
+  pais = "MX"
+  brazos = c("v_E_PROFIT_V2_MX","v_E_PROFIT_V2")
+  
+  datos = fread(nombre_archivo_datos)
+  datos = subset(datos, Date >= fecha_inicio & Date <= fecha_fin)
+  
+  #Orden por fecha
+  
+  datos = data.table(datos)
+  datos = datos[order(Date)]
+  
+  datos$Variation = gsub(pattern = "\\-",replacement = "_",x = datos$Variation)
+  
+  date = unique(datos$Date)
+
+
+#------------------------ 1: subset para quedarme con algunos estados---------------------------
+
+  for(j in 1:length(brazos))
+  {
+    aux = subset(datos, Flow == "SEARCH" & Country == pais & Metric =="Visits" & Variation == brazos[j]) #n = total
+    eval(call("<-", as.name(paste0("search_v_",brazos[j])),aux))
+  
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Page views" & Variation == brazos[j]) #n-k =compra
+    eval(call("<-", as.name(paste0("thanks_pv_",brazos[j])),aux))
+
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Revenue" & Variation == brazos[j]) 
+    eval(call("<-", as.name(paste0("thanks_r_",brazos[j])),aux))
+  
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Revenue variance standard" & Variation == brazos[j])
+    eval(call("<-", as.name(paste0("thanks_r_var_",brazos[j])),aux))
+
+# ----------------2: compras efectuadas-------------------------
+
+    aux =get(paste0("thanks_r_var_",brazos[j]))$Value*(get(paste0("thanks_pv_",brazos[j]))$Value-1)/(get(paste0("search_v_",brazos[j]))$Value -1)+
+        (get(paste0("thanks_r_",brazos[j]))$Value^2)/(get(paste0("thanks_pv_",brazos[j]))$Value*(get(paste0("search_v_",brazos[j]))$Value-1)) # no da
+  
+    eval(call("<-",as.name(paste0("var_thanks_total_",brazos[j])),aux))
+
+  #Creo acumuladores
+  
+    aux = cumsum(get(paste0("search_v_",brazos[j]))$Value)
+    eval(call("<-", as.name(paste0("n_acum_",brazos[j])),aux))
+  
+    aux = cumsum(get(paste0("thanks_r_",brazos[j]))$Value)
+    eval(call("<-", as.name(paste0("revenue_acum_",brazos[j])),aux))
+
+    aux = get(paste0("var_thanks_total_",brazos[j]))
+    eval(call("<-", as.name(paste0("var_thanks_total_",brazos[j])),aux))
+
+#VER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    aux = get(paste0("var_thanks_total_", brazos [j]))[1]
+    eval(call("<-", as.name(paste0("var_acum_",brazos[j])),aux))
+
+
+#--------------inicializo los terminos--------------
+
+    eval(call("<-",as.name(paste0("T1_",brazos[j])),numeric(length(date))))  
+    eval(call("<-",as.name(paste0("T2_",brazos[j])),numeric(length(date))))
+    eval(call("<-",as.name(paste0("T3_",brazos[j])),numeric(length(date))))
+    eval(call("<-",as.name(paste0("T4_",brazos[j])),numeric(length(date))))
+
+    eval(call("<-",as.name(paste0("numerador_",brazos[j])),0))
+    i = 2 #OK
+#-----------------Reconstruccion de la varianza------------------- VER!!!!!!
+    while (i <= length(date))
+    {
+  
+      aux = get(paste0("var_acum_", brazos[j]))[i-1] * (get(paste0("n_acum_", brazos[j]))[i-1]-1)
+      get(paste0("T1_", brazos[j]))[i] = aux
+      
+      
+      aux = get(paste0("var_thanks_total_", brazos[j]))[i] * (get(paste0("search_v_", brazos[j]))[i-1]-1)
+      get(paste0("T2_", brazos[j]))[i] = aux
+      nombre 
+      
+      aux = (get(paste0("n_acum_",brazos[j]))[i-1] / 
+        (get(paste0("n_acum_",brazos[j]))[i-1] * get(paste0("n_acum_",brazos[j]))[i]) * (get(paste0("revenue_acum_",brazos[j]))[i-1] * 
+        get(paste0("search_v_",brazos[j]))$Value[i]/get(paste0("n_acum_",brazos[j]))[i-1] - get(paste0("revenue_acum_",brazos[j]))[i]))
+      eval(call("<-",as.name(get(paste0("T3_",brazos[j]))[i]),aux))#Ok
+      nombre = as.name(get(paste0("T3_",brazos[j]))
+      nombre [i] = 
+    }
+#       T3_activado[i] =  ctivado[i-1]-revenue_acum_activado[i]) #ok
+#       eval(call("<-",as.name(paste0("T4_",brazos[j])),aux))
+#     
+#       T4_activado[i] = n_acum_activado[i]-1
+#       eval(call("<-",as.name(paste0("T4_",brazos[j])),0))
+#     
+#       numerador_activado[i] = (T1_activado[i] + T2_activado[i] + T3_activado[i])
+#   
+#       var_acum_activado[i] = numerador_activado[i] / T4_activado[i]
+#   
+  
+        
+    
+  i = i+1
+  }
+  
+
+  reconstruccion_activado = data.frame(date = search_v_activado$Date, arm = search_v_activado$Variation, thanks_var = thanks_r_var_activado$Value , revenue = thanks_r_activado$Value, 
+                                     n_acum = n_acum_activado, revenue_acum = revenue_acum_activado, var_acum = var_acum_activado)
+  eval(call("<-", as.name(paste0("Matriz_",brazos[i])),matriz_base))
+
+  if(i == 1)
+  {total = get(paste0("Matriz_",brazos[i]))}
+  else(total = rbind(total, get(paste0("Matriz_",brazos[i]))))
+
+#-------------------------------Grafico----------------
+
+
+  reconstruccion = rbind(reconstruccion_activado, reconstruccion_desactivado)
+
+  }
+
+
+  ggplot(reconstruccion, aes(x = date, y = var_acum, group = arm, colour = arm))+
+    geom_line(size=1) + xlab("Fecha") + ylab("varianza") + ggtitle("Sorting MX")
+
+
+#---------------Test hipotesis--------------
+  RV_activado = revenue_acum_activado[length(search_v_activado$Date)]/n_acum_activado[length(search_v_activado$Date)]
+  RV_desactivado = revenue_acum_desactivado[length(search_v_desactivado$Date)]/n_acum_desactivado[length(search_v_desactivado$Date)]
+
+
+  numerador_test = RV_activado - RV_desactivado
+  denominador_test = sqrt(var_acum_desactivado[length(search_v_desactivado$Date)]/n_acum_desactivado[length(search_v_desactivado$Date)]
+                        + var_acum_activado[length(search_v_activado$Date)]/n_acum_activado[length(search_v_activado$Date)])
+
+  t = numerador_test / denominador_test
+
+  df = n_acum_activado[length(search_v_activado$Date)] + n_acum_desactivado[length(search_v_desactivado$Date)]
+
+  list(t = t, df = df,pvalue = 2*pt(abs(t),df,lower.tail=F))
+
+}
