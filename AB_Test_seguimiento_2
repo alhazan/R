@@ -1,0 +1,139 @@
+# Funcion automatizada de ab test
+
+AB_Test_seguimiento_2 = function(nombre_archivo_datos, pais, brazos,fecha_inicio, fecha_fin)
+{
+  #   datos = "AB-Testing-byCountry--byDay.csv" #Debe Ingresar el nombre del archivo donde tiene guardado los datos y setear como wd donde estan guardados
+  #   pais = "MX"  # Debe ingresar el Country Code de Despegar.com
+  #   brazos = c("v_E_PROFIT_V2_MX","v_E_PROFIT_V2") #Debe Ingresar el nombre de los brazos a analizar
+  
+  
+  datos = fread(nombre_archivo_datos)
+  #Orden por fecha
+  
+  datos = data.table(datos)
+  datos = datos[order(Date)]
+  
+  datos$Variation = gsub(pattern = "\\-",replacement = "_",x = datos$Variation)
+  datos = subset(datos, Date<=fecha_fin & Date >=fecha_inicio )
+  date = unique(datos$Date)
+  #Chequeo de dimensiones??
+  
+  
+  
+  for (i in 1:length(brazos))
+  {
+    #------------------------ 1: subset para quedarme con algunos estados---------------------------
+    aux = subset(datos, Flow == "SEARCH" & Country == pais & Metric =="Visits" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("search_v_",brazos[i])),aux))
+    
+    #PV en Search
+    aux = subset(datos, Flow == "SEARCH" & Country == pais & Metric =="Page views" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("search_pv_",brazos[i])),aux))
+    
+    #Visitas en Detail
+    aux = subset(datos, Flow == "DETAIL" & Country == pais & Metric =="Visits" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("detail_v_",brazos[i])),aux))
+    
+    #PV en Detail
+    aux = subset(datos, Flow == "DETAIL" & Country == pais & Metric =="Page views" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("detail_pv_",brazos[i])),aux))
+    
+    #Visitas en Checkout
+    aux = subset(datos, Flow == "CHECKOUT" & Country == pais & Metric =="Visits" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("checkout_v_",brazos[i])),aux))
+    
+    #PV en Checkout
+    aux = subset(datos, Flow == "CHECKOUT" & Country == pais & Metric =="Page views" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("checkout_pv_",brazos[i])),aux))
+    
+    #Visitas en Thanks
+    aux = subset(datos, Flow == "THANKS" & Country ==pais & Metric =="Visits" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("thanks_v_",brazos[i])),aux))
+    
+    #PV en Thanks
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Page views" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("thanks_pv_",brazos[i])),aux))
+    
+    #Revenue
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Revenue" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("thanks_r_",brazos[i])),aux))
+    
+    #Gross Booking
+    aux = subset(datos, Flow == "THANKS" & Country == pais & Metric =="Gross booking" & Variation == brazos[i])
+    eval(call("<-", as.name(paste0("thanks_gb_",brazos[i])),aux))
+    #OK!!!!!
+    
+    #--------------------------2: Preparo tabla de analisis------------------------------------------------
+    
+    aux = get(paste0("checkout_v_",brazos[i]))$Value/get(paste0("search_v_",brazos[i]))$Value #Se resuelve con get()!!!!
+    eval(call("<-", as.name(paste0("checkout_v_search_v_",brazos[i])),aux))
+    
+    aux = get(paste0("detail_v_",brazos[i]))$Value/get(paste0("search_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("detail_v_search_v_",brazos[i])),aux))
+    
+    aux = get(paste0("checkout_v_",brazos[i]))$Value/get(paste0("detail_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("checkout_v_detail_v_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_v_",brazos[i]))$Value/get(paste0("checkout_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("thanks_v_checkout_",brazos[i])),aux))
+    
+    aux = get(paste0("detail_pv_",brazos[i]))$Value/get(paste0("detail_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("detail_pv_detail_v_",brazos[i])),aux))
+    
+    aux = get(paste0("checkout_pv_", brazos[i]))$Value/get(paste0("checkout_v_", brazos[i]))$Value #OK
+    eval(call("<-", as.name(paste0("checkout_pv_checkout_v_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_pv_",brazos[i]))$Value/get(paste0("search_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("conv_",brazos[i])),aux))
+    
+    aux = cumsum(get(paste0("thanks_pv_",brazos[i]))$Value)/cumsum(get(paste0("search_v_",brazos[i]))$Value)#OK
+    eval(call("<-", as.name(paste0("acum_conv_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_r_",brazos[i]))$Value/get(paste0("search_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("rv_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_r_",brazos[i]))$Value/get(paste0("search_pv_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("rpv_",brazos[i])),aux))
+    
+    aux = cumsum(get(paste0("thanks_r_",brazos[i]))$Value)/cumsum(get(paste0("search_v_",brazos[i]))$Value)
+    eval(call("<-", as.name(paste0("rv_acum_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_gb_",brazos[i]))$Value/get(paste0("search_v_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("gb_v_",brazos[i])),aux))
+    
+    aux = get(paste0("thanks_gb_",brazos[i]))$Value/get(paste0("search_pv_",brazos[i]))$Value
+    eval(call("<-", as.name(paste0("gb_pv_",brazos[i])),aux))
+    
+    aux = cumsum(get(paste0("checkout_v_",brazos[i]))$Value)/cumsum(get(paste0("search_v_",brazos[i]))$Value)
+    eval(call("<-", as.name(paste0("checkout_v_search_v_acum_",brazos[i])),aux))
+    
+    aux = cumsum(get(paste0("detail_v_",brazos[i]))$Value)/cumsum(get(paste0("search_v_",brazos[i]))$Value)
+    eval(call("<-", as.name(paste0("detail_v_search_v_acum_",brazos[i])),aux))
+    
+    
+    
+    matriz_base = data.frame(date, arm = get(paste0("search_pv_",brazos[i]))$Variation, conversion = get(paste0("conv_",brazos[i])), conversion_acum = get(paste0("acum_conv_",brazos[i])),
+                             revenue = get(paste0("thanks_r_",brazos[i]))$Value, revenue_v_acum = get(paste0("rv_acum_",brazos[i])), Search_visits = get(paste0("search_v_",brazos[i]))$Value,
+                             GB = get(paste0("thanks_gb_",brazos[i]))$Value, GB_V = get(paste0("gb_v_",brazos[i])), 
+                             GB_pv = get(paste0("gb_pv_",brazos[i])), checkout_pv_checkout_v = get(paste0("checkout_pv_checkout_v_",brazos[i])), 
+                             rpv = get(paste0("rpv_",brazos[i])), thanks_pv = get(paste0("thanks_pv_",brazos[i]))$Value,detail_v_search_v_acum = get(paste0("detail_v_search_v_acum_",brazos[i])),
+                             checkout_v_search_v_acum_ = get(paste0("checkout_v_search_v_acum_",brazos[i])),
+                             detail_pv_detail_v = get(paste0("detail_pv_detail_v_",brazos[i])), thanks_v_checkout = get(paste0("thanks_v_checkout_",brazos[i])),
+                             checkout_v_detail_v = get(paste0("checkout_v_detail_v_",brazos[i])), detail_v_search_v = get(paste0("detail_v_search_v_",brazos[i])),
+                             checkout_v_search_v_acum = get(paste0("checkout_v_search_v_acum_",brazos[i]))
+    )
+    
+    eval(call("<-", as.name(paste0("Matriz_",brazos[i])),matriz_base))
+    
+    if(i == 1)
+    {total = get(paste0("Matriz_",brazos[i]))}
+    else(total = rbind(total, get(paste0("Matriz_",brazos[i]))))
+    
+    
+  }  
+  
+  
+  return(total)
+  
+}
+
